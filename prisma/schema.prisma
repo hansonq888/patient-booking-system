@@ -1,0 +1,61 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum VisitType {
+  IN_PERSON
+  VIRTUAL
+}
+
+model Physician {
+  id           String            @id @default(cuid())
+  name         String
+  specialty    String
+  bio          String
+  initials     String
+  color        String
+  acceptingNew Boolean           @default(true)
+  slots        AppointmentSlot[]
+  createdAt    DateTime          @default(now())
+}
+
+model AppointmentSlot {
+  id           String    @id @default(cuid())
+  physicianId  String
+  physician    Physician @relation(fields: [physicianId], references: [id])
+  startsAt     DateTime
+  durationMins Int       @default(30)
+  visitType    VisitType @default(IN_PERSON)
+  isAvailable  Boolean   @default(true)
+  bookings     Booking[]
+
+  @@index([physicianId, startsAt])
+}
+
+model Booking {
+  id           String          @id @default(cuid())
+  slotId       String
+  slot         AppointmentSlot @relation(fields: [slotId], references: [id])
+  patientName  String
+  patientDob   String
+  patientPhone String
+  reasonChip   String
+  reasonNotes  String?
+  status       BookingStatus   @default(PENDING)
+  adminNotes   String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([status, createdAt])
+}
