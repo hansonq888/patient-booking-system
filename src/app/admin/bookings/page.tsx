@@ -8,19 +8,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Booking, Physician } from "@/lib/types";
 import { formatShortDate, formatSlotTime } from "@/lib/utils/date";
+import { REASON_COLORS } from "@/lib/constants";
 import { toast } from "sonner";
 
 const STATUS_OPTIONS = ["ALL", "PENDING", "CONFIRMED", "CANCELLED"] as const;
 type FilterStatus = (typeof STATUS_OPTIONS)[number];
-
-const reasonColors: Record<string, string> = {
-  "Annual physical": "bg-teal-50 text-teal-600",
-  "Follow-up": "bg-blue-50 text-blue-600",
-  "Sick visit": "bg-red-50 text-red-500",
-  Consultation: "bg-purple-50 text-purple-600",
-  Vaccination: "bg-green-50 text-green-600",
-  "Lab review": "bg-amber-50 text-amber-600",
-};
 
 function AllBookingsSkeleton() {
   return (
@@ -79,7 +71,7 @@ function AllBookingsContent() {
       if (value) next.set(key, value);
       else next.delete(key);
     }
-    router.push(`/admin/bookings?${next.toString()}`);
+    router.replace(`/admin/bookings?${next.toString()}`);
   }
 
   function handleSearchChange(value: string) {
@@ -91,7 +83,7 @@ function AllBookingsContent() {
   function clearFilters() {
     setSearchInput("");
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    router.push("/admin/bookings");
+    router.replace("/admin/bookings");
   }
 
   const hasFilters = status !== "ALL" || physicianId !== "" || search !== "";
@@ -105,9 +97,7 @@ function AllBookingsContent() {
             bookings
           </em>
         </h1>
-        <p className="text-slate-400 text-sm mt-1">
-          Manage and review all patient appointments.
-        </p>
+        <p className="text-slate-400 text-sm mt-1">Manage and review all patient appointments.</p>
       </div>
 
       {/* Filters */}
@@ -163,7 +153,15 @@ function AllBookingsContent() {
         </div>
       </div>
 
-      {/* List */}
+      {/* Count + List */}
+      <div className="space-y-2">
+      {!loading && (
+        <p className="text-xs text-slate-400 px-1">
+          {bookings.length} {bookings.length === 1 ? "appointment" : "appointments"}
+          {hasFilters ? " matching filters" : ""}
+        </p>
+      )}
+
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -173,7 +171,9 @@ function AllBookingsContent() {
       ) : bookings.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-100 p-14 text-center">
           <ClipboardList className="w-8 h-8 text-slate-200 mx-auto mb-3" />
-          <p className="text-slate-400 text-sm font-medium">No bookings match your filters</p>
+          <p className="text-slate-400 text-sm font-medium">
+            {hasFilters ? "No bookings match your filters" : "No appointments booked yet"}
+          </p>
           {hasFilters && (
             <button
               onClick={clearFilters}
@@ -199,13 +199,11 @@ function AllBookingsContent() {
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 truncate">
-                  {booking.patientName}
-                </p>
+                <p className="text-sm font-medium text-slate-900 truncate">{booking.patientName}</p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span
                     className={`px-2 py-0.5 rounded-md text-xs font-medium ${
-                      reasonColors[booking.reasonChip] ?? "bg-slate-100 text-slate-500"
+                      REASON_COLORS[booking.reasonChip] ?? "bg-slate-100 text-slate-500"
                     }`}
                   >
                     {booking.reasonChip}
@@ -233,6 +231,7 @@ function AllBookingsContent() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }

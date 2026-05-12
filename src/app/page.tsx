@@ -31,19 +31,22 @@ export default function Home() {
             feels nothing like a waiting room.
           </p>
 
-          <div className="flex items-center justify-center gap-3 pt-2">
+          <div className="flex flex-col items-center gap-4 pt-2">
             <Link
               href="/book"
-              className="bg-slate-900 hover:bg-slate-700 text-white font-medium px-6 py-3 rounded-xl transition-colors flex items-center gap-2"
+              className="bg-teal-600 hover:bg-teal-700 text-white font-medium px-8 py-3.5 rounded-xl transition-colors flex items-center gap-2"
             >
               Book an appointment <ArrowRight className="w-4 h-4" />
             </Link>
-            <Link
-              href="/admin"
-              className="bg-white/70 hover:bg-white text-slate-700 font-medium px-6 py-3 rounded-xl border border-slate-200 transition-colors backdrop-blur-sm"
-            >
-              Admin dashboard
-            </Link>
+            <div className="flex items-center gap-3 text-sm text-slate-400">
+              <Link href="/physician" className="hover:text-slate-600 transition-colors">
+                Physician workspace
+              </Link>
+              <span>·</span>
+              <Link href="/admin" className="hover:text-slate-600 transition-colors">
+                Admin dashboard
+              </Link>
+            </div>
           </div>
         </div>
 

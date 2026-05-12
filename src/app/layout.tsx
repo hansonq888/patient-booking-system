@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Geist_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { BookingProvider } from "@/context/BookingContext";
+import { PhysicianProvider } from "@/context/PhysicianContext";
 import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({
@@ -33,10 +34,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${geistMono.variable} ${playfair.variable}`}>
       <body className="antialiased min-h-screen">
-        <BookingProvider>
-          {children}
-          <Toaster richColors position="top-right" />
-        </BookingProvider>
+        <PhysicianProvider>
+          <BookingProvider>
+            {children}
+            <Toaster richColors position="top-right" />
+          </BookingProvider>
+        </PhysicianProvider>
       </body>
     </html>
   );

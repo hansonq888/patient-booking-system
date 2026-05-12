@@ -25,7 +25,18 @@ export function formatSlotDate(dateStr: string): string {
     });
   }
   
-  export function groupSlotsByDate(slots: { startsAt: string; id: string }[]) {
+  export function formatDob(dob: string): string {
+  const [year, month, day] = dob.split("-").map(Number);
+  // Use local-time constructor to avoid UTC midnight shifting the date
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
+export function isPast(startsAt: string): boolean {
+  return new Date(startsAt) < new Date();
+}
+
+export function groupSlotsByDate(slots: { startsAt: string; id: string }[]) {
     const groups: Record<string, typeof slots> = {};
     for (const slot of slots) {
       const key = new Date(slot.startsAt).toDateString();

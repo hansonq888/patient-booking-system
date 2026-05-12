@@ -1,22 +1,17 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Building2, Video, Clock, CalendarDays, User, Phone } from "lucide-react";
+import { ArrowLeft, Building2, Video, Clock, CalendarDays, User, Phone, Check } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Booking, BookingStatus } from "@/lib/types";
-import { formatSlotDate, formatSlotTime } from "@/lib/utils/date";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Booking } from "@/lib/types";
+import { formatSlotDate, formatSlotTime, isPast } from "@/lib/utils/date";
+import { formatPhone } from "@/lib/utils/format";
+import { REASON_COLORS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-
-const reasonColors: Record<string, string> = {
-  "Annual physical": "bg-teal-50 text-teal-600",
-  "Follow-up": "bg-blue-50 text-blue-600",
-  "Sick visit": "bg-red-50 text-red-500",
-  Consultation: "bg-purple-50 text-purple-600",
-  Vaccination: "bg-green-50 text-green-600",
-  "Lab review": "bg-amber-50 text-amber-600",
-};
 
 function LoadingSkeleton() {
   return (
@@ -50,7 +45,15 @@ function InfoCard({ title, children }: { title: string; children: React.ReactNod
   );
 }
 
-function DetailRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: React.ReactNode }) {
+function DetailRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: React.ReactNode;
+}) {
   return (
     <div className="flex items-start gap-3">
       <Icon className="w-4 h-4 text-slate-300 shrink-0 mt-0.5" />
@@ -74,7 +77,10 @@ export default function BookingDetailPage({
   const [notFound, setNotFound] = useState(false);
   const [adminNotes, setAdminNotes] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [notesSaved, setNotesSaved] = useState(false);
+  const notesSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [actionLoading, setActionLoading] = useState<"CONFIRMED" | "CANCELLED" | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   useEffect(() => {
     fetch(`/api/bookings/${id}`)
@@ -90,9 +96,15 @@ export default function BookingDetailPage({
       .catch(() => { toast.error("Failed to load booking"); setLoading(false); });
   }, [id]);
 
-  async function handleStatusChange(newStatus: BookingStatus) {
+  useEffect(() => () => {
+    if (notesSavedTimer.current) clearTimeout(notesSavedTimer.current);
+  }, []);
+
+  const notesIsDirty = adminNotes !== (booking?.adminNotes ?? "");
+
+  async function handleStatusChange(newStatus: "CONFIRMED" | "CANCELLED") {
     if (!booking) return;
-    setActionLoading(true);
+    setActionLoading(newStatus);
     try {
       const res = await fetch(`/api/bookings/${id}`, {
         method: "PATCH",
@@ -110,12 +122,12 @@ export default function BookingDetailPage({
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Action failed");
     } finally {
-      setActionLoading(false);
+      setActionLoading(null);
     }
   }
 
   async function handleSaveNotes() {
-    if (!booking) return;
+    if (!booking || !notesIsDirty) return;
     setSavingNotes(true);
     try {
       const res = await fetch(`/api/bookings/${id}`, {
@@ -126,7 +138,9 @@ export default function BookingDetailPage({
       if (!res.ok) throw new Error();
       const updated: Booking = await res.json();
       setBooking(updated);
-      toast.success("Notes saved");
+      setNotesSaved(true);
+      if (notesSavedTimer.current) clearTimeout(notesSavedTimer.current);
+      notesSavedTimer.current = setTimeout(() => setNotesSaved(false), 2500);
     } catch {
       toast.error("Failed to save notes");
     } finally {
@@ -140,7 +154,10 @@ export default function BookingDetailPage({
     return (
       <div className="text-center py-24">
         <p className="text-slate-400 text-sm">Booking not found</p>
-        <Link href="/admin/bookings" className="mt-4 inline-flex items-center gap-2 text-slate-500 hover:text-slate-800 text-sm transition-colors">
+        <Link
+          href="/admin/bookings"
+          className="mt-4 inline-flex items-center gap-2 text-slate-500 hover:text-slate-800 text-sm transition-colors"
+        >
           <ArrowLeft className="w-4 h-4" /> Back to bookings
         </Link>
       </div>
@@ -149,6 +166,7 @@ export default function BookingDetailPage({
 
   const { slot } = booking;
   const physician = slot.physician;
+  const past = isPast(slot.startsAt);
 
   return (
     <div className="space-y-6">
@@ -161,20 +179,30 @@ export default function BookingDetailPage({
       </Link>
 
       <div>
-        <h1 className="text-2xl font-light text-slate-900">{booking.patientName}</h1>
+        <h1 className="text-2xl font-light text-slate-900 truncate">{booking.patientName}</h1>
         <p className="text-slate-300 mt-0.5 font-mono text-xs tracking-wide">
           #{booking.id.slice(-8).toUpperCase()}
         </p>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-5">
-        {/* Main */}
         <div className="lg:col-span-2 space-y-3">
           <InfoCard title="Patient">
             <div className="space-y-3.5">
               <DetailRow icon={User} label="Full name" value={booking.patientName} />
               <DetailRow icon={CalendarDays} label="Date of birth" value={booking.patientDob} />
-              <DetailRow icon={Phone} label="Phone" value={booking.patientPhone} />
+              <DetailRow
+                icon={Phone}
+                label="Phone"
+                value={
+                  <a
+                    href={`tel:${booking.patientPhone}`}
+                    className="hover:text-slate-600 transition-colors"
+                  >
+                    {formatPhone(booking.patientPhone)}
+                  </a>
+                }
+              />
             </div>
           </InfoCard>
 
@@ -212,7 +240,7 @@ export default function BookingDetailPage({
           <InfoCard title="Reason for visit">
             <span
               className={`inline-block px-2.5 py-1 rounded-lg text-sm font-medium ${
-                reasonColors[booking.reasonChip] ?? "bg-slate-100 text-slate-500"
+                REASON_COLORS[booking.reasonChip] ?? "bg-slate-100 text-slate-500"
               }`}
             >
               {booking.reasonChip}
@@ -228,11 +256,17 @@ export default function BookingDetailPage({
                 { label: "Booking ID", value: <span className="font-mono">{booking.id}</span> },
                 {
                   label: "Created",
-                  value: new Date(booking.createdAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" }),
+                  value: new Date(booking.createdAt).toLocaleString("en-CA", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }),
                 },
                 {
                   label: "Updated",
-                  value: new Date(booking.updatedAt).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" }),
+                  value: new Date(booking.updatedAt).toLocaleString("en-CA", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }),
                 },
               ].map(({ label, value }) => (
                 <div key={label} className="flex justify-between gap-4">
@@ -244,7 +278,6 @@ export default function BookingDetailPage({
           </InfoCard>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-3">
           <InfoCard title="Status">
             <div className="mb-5">
@@ -255,23 +288,27 @@ export default function BookingDetailPage({
               <p className="text-xs text-slate-400 bg-slate-50 rounded-xl p-3 leading-relaxed">
                 This booking has been cancelled.
               </p>
+            ) : past ? (
+              <p className="text-xs text-slate-400 bg-slate-50 rounded-xl p-3 leading-relaxed">
+                This appointment has already taken place.
+              </p>
             ) : (
               <div className="space-y-2">
                 {booking.status === "PENDING" && (
                   <button
                     onClick={() => handleStatusChange("CONFIRMED")}
-                    disabled={actionLoading}
+                    disabled={actionLoading !== null}
                     className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-700 text-white font-medium text-sm transition-colors disabled:opacity-50"
                   >
-                    Confirm appointment
+                    {actionLoading === "CONFIRMED" ? "Confirming…" : "Confirm appointment"}
                   </button>
                 )}
                 <button
-                  onClick={() => handleStatusChange("CANCELLED")}
-                  disabled={actionLoading}
+                  onClick={() => setShowCancelConfirm(true)}
+                  disabled={actionLoading !== null}
                   className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-red-500 hover:border-red-200 font-medium text-sm transition-colors disabled:opacity-50"
                 >
-                  Cancel appointment
+                  {actionLoading === "CANCELLED" ? "Cancelling…" : "Cancel appointment"}
                 </button>
               </div>
             )}
@@ -280,21 +317,47 @@ export default function BookingDetailPage({
           <InfoCard title="Admin notes">
             <textarea
               value={adminNotes}
-              onChange={(e) => setAdminNotes(e.target.value)}
+              onChange={(e) => { setAdminNotes(e.target.value); setNotesSaved(false); }}
               placeholder="Internal notes about this booking…"
               rows={5}
               className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 placeholder:text-slate-300 resize-none focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-transparent"
             />
             <button
               onClick={handleSaveNotes}
-              disabled={savingNotes}
-              className="mt-2.5 w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-700 text-white font-medium text-sm transition-colors disabled:opacity-50"
+              disabled={!notesIsDirty || savingNotes}
+              className={cn(
+                "mt-2.5 w-full py-2.5 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-1.5",
+                notesSaved
+                  ? "bg-green-600 text-white"
+                  : notesIsDirty
+                  ? "bg-slate-900 hover:bg-slate-700 text-white"
+                  : "bg-slate-200 text-slate-400"
+              )}
             >
-              {savingNotes ? "Saving…" : "Save notes"}
+              {notesSaved ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  Saved
+                </>
+              ) : savingNotes ? (
+                "Saving…"
+              ) : (
+                "Save notes"
+              )}
             </button>
           </InfoCard>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showCancelConfirm}
+        title="Cancel this appointment?"
+        description="The patient's slot will be released and made available for rebooking."
+        confirmLabel="Yes, cancel"
+        cancelLabel="Keep appointment"
+        onConfirm={() => { setShowCancelConfirm(false); handleStatusChange("CANCELLED"); }}
+        onCancel={() => setShowCancelConfirm(false)}
+      />
     </div>
   );
 }
