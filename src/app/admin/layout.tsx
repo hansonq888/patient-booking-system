@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AdminNav } from "./_components/AdminNav";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -9,7 +10,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         Skip to main content
       </a>
-      <AdminNav />
+      <Suspense fallback={null}>
+        <AdminNav />
+      </Suspense>
       <main id="main-content" className="flex-1 overflow-auto">
         <div className="p-8 max-w-5xl">{children}</div>
       </main>
