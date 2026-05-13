@@ -135,9 +135,9 @@ async function main() {
       pastDayIdx++;
     }
 
-    // Future days (today + 7 calendar days)
+    // Future days (today + 28 calendar days = ~4 weeks)
     let dayIdx = 0;
-    for (let dayOffset = 0; dayOffset <= 7; dayOffset++) {
+    for (let dayOffset = 0; dayOffset <= 28; dayOffset++) {
       const date = addDays(today, dayOffset);
       if (date.getDay() === 0 || date.getDay() === 6) continue;
 
@@ -441,7 +441,7 @@ async function main() {
   console.log("Seed complete.");
   console.log(`  ${physicians.length} physicians`);
   console.log(`  ${totalSlots} slots`);
-  console.log(`  ${seedBookings.length} bookings spread across 8 days (3 past + 5 upcoming)`);
+  console.log(`  ${seedBookings.length} bookings spread across 8 days (3 past + 5 upcoming, ~4 weeks of open slots)`);
 }
 
 main()
