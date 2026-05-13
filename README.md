@@ -12,15 +12,7 @@ No setup needed. Feel free to click around and try the full booking flow, admin 
 
 ## Running the project
 
-**Prerequisites:** Node.js 20+, PostgreSQL database ([Neon](https://neon.tech))
-
-```bash
-npm install
-cp .env.example .env.local   # add your DATABASE_URL
-npx prisma db push
-npx prisma db seed
-npm run dev
-```
+The live demo above is the easiest way to explore the app. The four entry points are:
 
 | Route | What it is |
 |---|---|
@@ -29,15 +21,24 @@ npm run dev
 | `/admin` | Admin dashboard |
 | `/physician` | Physician workspace |
 
+To run locally, you'll need Node.js 20+ and a Neon PostgreSQL database. Add the connection string to `.env.local` as `DATABASE_URL`, then:
+
+```bash
+npm install
+npx prisma db push
+npx prisma db seed
+npm run dev
+```
+
 ---
 
 ## What I built
 
-**Patient booking flow** (`/book`): Five-step wizard (physician, time slot, reason, details, review). Form state persists in `localStorage`. Bookings land as PENDING awaiting clinic confirmation.
+1. **Patient booking flow** (`/book`): Five-step wizard (physician, time slot, reason, details, review). Form state persists in `localStorage`. Bookings land as PENDING awaiting clinic confirmation.
 
-**Admin view** (`/admin`): Today's schedule with stats, plus an all-bookings list with search, upcoming/past, status, and physician filters. Booking detail includes patient info, admin notes, and confirm/cancel.
+2. **Admin view** (`/admin`): Today's schedule with stats, plus an all-bookings list with search, upcoming/past, status, and physician filters. Booking detail includes patient info, admin notes, and confirm/cancel.
 
-**Physician workspace** (`/physician`): Per-physician localStorage session with four tabs: **My Schedule** (today's timeline with next-up countdown), **Calendar** (month view with per-day density), **Inbox** (bookings from the last 14 days with a pending badge), and **All Patients** (full filterable list). Physicians can toggle "accepting new patients" live from the schedule page.
+3. **Physician workspace** (`/physician`): Per-physician localStorage session with four tabs: **My Schedule** (today's timeline with next-up countdown), **Calendar** (month view with per-day density), **Inbox** (bookings from the last 14 days with a pending badge), and **All Patients** (full filterable list). Physicians can toggle "accepting new patients" live from the schedule page.
 
 ---
 
