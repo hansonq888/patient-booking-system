@@ -5,13 +5,14 @@ import Link from "next/link";
 import { Building2, Video, Sun, CloudSun, CalendarOff, AlertCircle, RefreshCw, Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/StatusBadge";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Booking } from "@/lib/types";
 import { formatSlotTime, isPast } from "@/lib/utils/date";
 import { REASON_COLORS } from "@/lib/constants";
 import { usePhysician } from "@/context/PhysicianContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { physicianScheduleBookingSurface } from "@/lib/booking-schedule-ui";
+import { physicianBookingDetailHref } from "@/lib/physician-booking-nav";
 
 function getSalutation(): string {
   const h = new Date().getHours();
@@ -22,53 +23,66 @@ function minsUntil(startsAt: string): number {
   return Math.round((new Date(startsAt).getTime() - Date.now()) / 60000);
 }
 
-
 export default function PhysicianDashboardPage({
   params,
 }: {
   params: Promise<{ physicianId: string }>;
 }) {
   const { physicianId } = use(params);
-  const { selectedPhysician } = usePhysician();
+  const { selectedPhysician, setSelectedPhysician } = usePhysician();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
-  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [accepting, setAccepting] = useState(selectedPhysician?.acceptingNew ?? true);
+  const [toggling, setToggling] = useState(false);
 
   function load() {
     setLoading(true);
     setError(false);
     fetch(`/api/bookings?physicianId=${physicianId}&date=today`)
-      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((data: Booking[]) => { setBookings(data); setLoading(false); })
-      .catch(() => { setError(true); setLoading(false); });
+      .then((r) => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
+      .then((data: Booking[]) => {
+        setBookings(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+        toast.error("Failed to load your schedule");
+      });
   }
 
-  useEffect(() => { load(); }, [physicianId]);
+  useEffect(() => {
+    load();
+  }, [physicianId]);
 
-  async function updateStatus(id: string, newStatus: "CONFIRMED" | "CANCELLED") {
-    const prev = bookings;
-    setActionLoadingId(id);
-    setBookings((bs) => bs.map((b) => (b.id === id ? { ...b, status: newStatus } : b)));
+  useEffect(() => {
+    if (selectedPhysician) setAccepting(selectedPhysician.acceptingNew);
+  }, [selectedPhysician]);
+
+  // Optimistic update: flip immediately, revert on API failure
+  async function handleToggle() {
+    if (!selectedPhysician || toggling) return;
+    const next = !accepting;
+    setAccepting(next);
+    setToggling(true);
     try {
-      const res = await fetch(`/api/bookings/${id}`, {
+      const res = await fetch(`/api/physicians/${physicianId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ acceptingNew: next }),
       });
       if (!res.ok) throw new Error();
-      toast.success(
-        newStatus === "CONFIRMED"
-          ? "Appointment confirmed"
-          : "Appointment cancelled — slot is now available"
-      );
-      window.dispatchEvent(new CustomEvent("pendingCountChanged"));
+      setSelectedPhysician({ ...selectedPhysician, acceptingNew: next });
+      toast.success(next ? "Now accepting new patients" : "No longer accepting new patients");
     } catch {
-      setBookings(prev);
-      toast.error("Action failed. Please try again.");
+      setAccepting(!next);
+      toast.error("Failed to update. Please try again.");
     } finally {
-      setActionLoadingId(null);
+      setToggling(false);
     }
   }
 
@@ -117,6 +131,41 @@ export default function PhysicianDashboardPage({
             {stats.pending > 0 ? ` — ${stats.pending} pending confirmation.` : "."}
           </p>
         )}
+        <p className="text-slate-500 text-sm mt-2 max-w-lg">
+          Today&apos;s schedule is read-only — tap a row for details. Use{" "}
+          <Link
+            href={`/physician/${physicianId}/bookings`}
+            className="font-medium text-slate-700 underline decoration-slate-300 underline-offset-2 hover:text-slate-900"
+          >
+            All patients
+          </Link>{" "}
+          to confirm, cancel, or search appointments ahead of time.
+        </p>
+
+        <button
+          onClick={handleToggle}
+          disabled={toggling}
+          className="mt-4 flex items-center gap-2.5 group"
+          aria-label={accepting ? "Stop accepting new patients" : "Start accepting new patients"}
+        >
+          <span
+            className={cn(
+              "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+              accepting ? "bg-teal-500" : "bg-slate-300",
+              toggling && "opacity-60"
+            )}
+          >
+            <span
+              className={cn(
+                "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform",
+                accepting ? "translate-x-4" : "translate-x-1"
+              )}
+            />
+          </span>
+          <span className="text-sm text-slate-500 group-hover:text-slate-700 transition-colors">
+            {accepting ? "Accepting new patients" : "Not accepting new patients"}
+          </span>
+        </button>
       </div>
 
       {/* Stats — 4 cards in 2×2 / 4-col */}
@@ -155,6 +204,7 @@ export default function PhysicianDashboardPage({
           <AlertCircle className="w-6 h-6 text-red-400 mx-auto mb-2" />
           <p className="text-slate-500 text-sm mb-4">Failed to load your schedule</p>
           <button
+            type="button"
             onClick={load}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
           >
@@ -189,20 +239,15 @@ export default function PhysicianDashboardPage({
                 </div>
 
                 <div className="space-y-2">
-                  {/* Past appointments */}
                   {pastItems.map((booking) => (
                     <BookingCard
                       key={booking.id}
                       booking={booking}
                       physicianId={physicianId}
                       nextUpId={nextUpId}
-                      actionLoadingId={actionLoadingId}
-                      onConfirm={(id) => updateStatus(id, "CONFIRMED")}
-                      onCancelClick={(id) => setConfirmCancelId(id)}
                     />
                   ))}
 
-                  {/* "Now" divider — only shown when there are both past and upcoming items */}
                   {showNowLine && (
                     <div className="flex items-center gap-3 py-1">
                       <div className="flex-1 h-px bg-teal-100" />
@@ -214,16 +259,12 @@ export default function PhysicianDashboardPage({
                     </div>
                   )}
 
-                  {/* Upcoming appointments */}
                   {upcomingItems.map((booking) => (
                     <BookingCard
                       key={booking.id}
                       booking={booking}
                       physicianId={physicianId}
                       nextUpId={nextUpId}
-                      actionLoadingId={actionLoadingId}
-                      onConfirm={(id) => updateStatus(id, "CONFIRMED")}
-                      onCancelClick={(id) => setConfirmCancelId(id)}
                     />
                   ))}
                 </div>
@@ -232,19 +273,6 @@ export default function PhysicianDashboardPage({
           })}
         </div>
       )}
-
-      <ConfirmDialog
-        open={confirmCancelId !== null}
-        title="Cancel this appointment?"
-        description="The patient's slot will be released and made available for rebooking."
-        confirmLabel="Yes, cancel"
-        cancelLabel="Keep appointment"
-        onConfirm={() => {
-          if (confirmCancelId) updateStatus(confirmCancelId, "CANCELLED");
-          setConfirmCancelId(null);
-        }}
-        onCancel={() => setConfirmCancelId(null)}
-      />
     </div>
   );
 }
@@ -253,57 +281,39 @@ function BookingCard({
   booking,
   physicianId,
   nextUpId,
-  actionLoadingId,
-  onConfirm,
-  onCancelClick,
 }: {
   booking: Booking;
   physicianId: string;
   nextUpId: string | null;
-  actionLoadingId: string | null;
-  onConfirm: (id: string) => void;
-  onCancelClick: (id: string) => void;
 }) {
   const past = isPast(booking.slot.startsAt);
-  const isLoading = actionLoadingId === booking.id;
-  const canAct = booking.status !== "CANCELLED" && !past;
   const isNext = booking.id === nextUpId;
   const mins = isNext ? minsUntil(booking.slot.startsAt) : null;
   const muted = past || booking.status === "CANCELLED";
 
   return (
-    <div
+    <Link
+      href={physicianBookingDetailHref(physicianId, booking.id, "schedule")}
       className={cn(
         "relative flex items-center rounded-xl border transition-all group",
-        muted
-          ? "bg-white border-slate-100 hover:border-slate-200 hover:shadow-sm"
-          : isNext
-          ? "bg-teal-50/50 border-teal-200 shadow-sm hover:shadow-md"
-          : booking.status === "PENDING"
-          ? "bg-amber-50/40 border-amber-100 hover:border-amber-200 hover:shadow-sm"
-          : "bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm"
+        physicianScheduleBookingSurface(booking, muted, isNext)
       )}
     >
-      {/* Card content */}
       <div
         className={cn(
-          "flex-1 flex items-center gap-4 px-4 py-3.5 min-w-0",
+          "flex flex-1 items-center gap-4 px-4 py-3.5 min-w-0",
           muted && "opacity-50 group-hover:opacity-75 transition-opacity"
         )}
       >
-        {/* Time + countdown */}
         <div className="w-16 shrink-0">
-          <p className="text-sm font-semibold text-slate-900 tabular-nums">
-            {formatSlotTime(booking.slot.startsAt)}
-          </p>
+          <p className="text-sm font-semibold text-slate-900 tabular-nums">{formatSlotTime(booking.slot.startsAt)}</p>
           {isNext && mins !== null && (
             <p className="text-[10px] font-medium text-teal-500 mt-0.5 tabular-nums">
-              {mins <= 0 ? "Now" : `${mins}m`}
+              {mins <= 0 ? "Now" : mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`}
             </p>
           )}
         </div>
 
-        {/* Patient name + chips */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
             <p className="text-sm font-medium text-slate-900 truncate">{booking.patientName}</p>
@@ -334,40 +344,10 @@ function BookingCard({
           </div>
         </div>
 
-        {/* Status badge */}
-        <div className="shrink-0 hidden sm:block">
+        <div className="shrink-0">
           <StatusBadge status={booking.status} />
         </div>
       </div>
-
-      {/* Action buttons — z-10 so they sit above the full-card Link */}
-      {canAct && (
-        <div className="relative z-10 flex items-center gap-1.5 pr-4 shrink-0">
-          {booking.status === "PENDING" && (
-            <button
-              onClick={() => onConfirm(booking.id)}
-              disabled={isLoading}
-              className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/80 text-teal-700 border border-teal-200 hover:bg-teal-50 transition-colors disabled:opacity-50"
-            >
-              {isLoading ? "…" : "Confirm"}
-            </button>
-          )}
-          <button
-            onClick={() => onCancelClick(booking.id)}
-            disabled={isLoading}
-            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-50/60 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-
-      {/* Full-card link sits last in the DOM so z-10 buttons win the stacking order */}
-      <Link
-        href={`/physician/${physicianId}/bookings/${booking.id}`}
-        className="absolute inset-0"
-        aria-label={`View booking for ${booking.patientName}`}
-      />
-    </div>
+    </Link>
   );
 }

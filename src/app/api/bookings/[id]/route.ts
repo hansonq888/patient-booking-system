@@ -8,6 +8,7 @@ const updateSchema = z.object({
   adminNotes: z.string().optional(),
 });
 
+// Explicit state machine: only forward transitions are allowed (no un-cancelling)
 const VALID_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
   PENDING: ["CONFIRMED", "CANCELLED"],
   CONFIRMED: ["CANCELLED"],
@@ -82,6 +83,7 @@ export async function PATCH(
     }
 
     const booking = await prisma.$transaction(async (tx) => {
+      // Release the slot back to available so other patients can book it
       if (newStatus === "CANCELLED" && existing.status !== "CANCELLED") {
         await tx.appointmentSlot.update({
           where: { id: existing.slotId },

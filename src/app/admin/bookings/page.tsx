@@ -2,17 +2,23 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { Search, Building2, Video, X, ChevronRight, ClipboardList } from "lucide-react";
+import { Search, X, ClipboardList } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatusBadge } from "@/components/StatusBadge";
-import { Booking, Physician } from "@/lib/types";
-import { formatShortDate, formatSlotTime } from "@/lib/utils/date";
-import { REASON_COLORS } from "@/lib/constants";
+import { AdminBookingRow } from "@/components/AdminBookingRow";
+import { adminBookingDetailHref } from "@/lib/admin-booking-nav";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Booking, BookingStatus, Physician } from "@/lib/types";
 import { toast } from "sonner";
 
 const STATUS_OPTIONS = ["ALL", "PENDING", "CONFIRMED", "CANCELLED"] as const;
 type FilterStatus = (typeof STATUS_OPTIONS)[number];
+
+const PERIOD_OPTIONS = ["upcoming", "past"] as const;
+type FilterPeriod = (typeof PERIOD_OPTIONS)[number];
+const PERIOD_LABELS: Record<FilterPeriod, string> = {
+  upcoming: "Upcoming",
+  past: "Past",
+};
 
 function AllBookingsSkeleton() {
   return (
@@ -24,7 +30,7 @@ function AllBookingsSkeleton() {
       <Skeleton className="h-28 w-full rounded-2xl" />
       <div className="space-y-2">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-[68px] w-full rounded-2xl" />
+          <Skeleton key={i} className="h-[72px] w-full rounded-xl" />
         ))}
       </div>
     </div>
@@ -38,12 +44,16 @@ function AllBookingsContent() {
   const status = (searchParams.get("status") ?? "ALL") as FilterStatus;
   const physicianId = searchParams.get("physicianId") ?? "";
   const search = searchParams.get("search") ?? "";
+  const rawPeriod = searchParams.get("period");
+  const period: FilterPeriod = rawPeriod === "past" ? "past" : "upcoming";
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [physicians, setPhysicians] = useState<Physician[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState(search);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/physicians")
@@ -57,13 +67,37 @@ function AllBookingsContent() {
     if (status !== "ALL") params.set("status", status);
     if (physicianId) params.set("physicianId", physicianId);
     if (search) params.set("search", search);
+    params.set("period", period);
 
     setLoading(true);
     fetch(`/api/bookings?${params.toString()}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data: Booking[]) => { setBookings(data); setLoading(false); })
       .catch(() => { toast.error("Failed to load bookings"); setLoading(false); });
-  }, [status, physicianId, search]);
+  }, [status, physicianId, search, period]);
+
+
+  // Optimistic update: snapshot for rollback on API failure
+  async function updateStatus(id: string, newStatus: BookingStatus) {
+    const prev = bookings;
+    setActionLoadingId(id);
+    setBookings((bs) => bs.map((b) => (b.id === id ? { ...b, status: newStatus } : b)));
+    try {
+      const res = await fetch(`/api/bookings/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(newStatus === "CONFIRMED" ? "Appointment confirmed" : "Appointment cancelled");
+      window.dispatchEvent(new CustomEvent("pendingCountChanged"));
+    } catch {
+      setBookings(prev);
+      toast.error("Action failed. Please try again.");
+    } finally {
+      setActionLoadingId(null);
+    }
+  }
 
   function updateParams(updates: Record<string, string>) {
     const next = new URLSearchParams(searchParams.toString());
@@ -86,7 +120,7 @@ function AllBookingsContent() {
     router.replace("/admin/bookings");
   }
 
-  const hasFilters = status !== "ALL" || physicianId !== "" || search !== "";
+  const hasFilters = status !== "ALL" || physicianId !== "" || search !== "" || period !== "upcoming";
 
   return (
     <div className="space-y-8">
@@ -97,32 +131,50 @@ function AllBookingsContent() {
             bookings
           </em>
         </h1>
-        <p className="text-slate-400 text-sm mt-1">Manage and review all patient appointments.</p>
+        <p className="text-slate-500 text-sm mt-1">Manage and review all patient appointments.</p>
       </div>
 
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-slate-100 p-4 space-y-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          {STATUS_OPTIONS.map((s) => (
+        <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Filter by time period">
+          {PERIOD_OPTIONS.map((p) => (
             <button
-              key={s}
-              onClick={() => updateParams({ status: s === "ALL" ? "" : s })}
-              className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
-                status === s
+              key={p}
+              onClick={() => updateParams({ period: p === "upcoming" ? "" : p })}
+              aria-pressed={period === p}
+              className={`min-h-11 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                period === p
                   ? "bg-slate-900 text-white"
-                  : "bg-slate-100 text-slate-400 hover:text-slate-700 hover:bg-slate-200"
+                  : "bg-slate-100 text-slate-500 hover:text-slate-800 hover:bg-slate-200"
               }`}
             >
-              {s === "ALL" ? "All" : s.charAt(0) + s.slice(1).toLowerCase()}
+              {PERIOD_LABELS[p]}
             </button>
           ))}
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Filter by booking status">
+          {STATUS_OPTIONS.map((s) => (
+            <button
+              key={s}
+              onClick={() => updateParams({ status: s === "ALL" ? "" : s })}
+              aria-pressed={status === s}
+              className={`min-h-11 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                status === s
+                  ? "bg-slate-900 text-white"
+                  : "bg-slate-100 text-slate-500 hover:text-slate-800 hover:bg-slate-200"
+              }`}
+            >
+              {s === "ALL" ? "All statuses" : s.charAt(0) + s.slice(1).toLowerCase()}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <select
             value={physicianId}
             onChange={(e) => updateParams({ physicianId: e.target.value })}
-            className="h-9 px-3 rounded-lg border border-slate-200 text-sm text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+            className="h-11 w-full sm:w-auto px-3 rounded-lg border border-slate-200 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
           >
             <option value="">All physicians</option>
             {physicians.map((p) => (
@@ -130,21 +182,21 @@ function AllBookingsContent() {
             ))}
           </select>
 
-          <div className="relative flex-1 min-w-48">
+          <div className="relative flex-1 min-w-48 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" />
             <input
               type="text"
               value={searchInput}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Search patient name…"
-              className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 text-sm text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300"
+              className="w-full h-11 pl-9 pr-3 rounded-lg border border-slate-200 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300"
             />
           </div>
 
           {hasFilters && (
             <button
               onClick={clearFilters}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              className="min-h-11 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors"
             >
               <X className="w-3.5 h-3.5" />
               Clear
@@ -156,22 +208,23 @@ function AllBookingsContent() {
       {/* Count + List */}
       <div className="space-y-2">
       {!loading && (
-        <p className="text-xs text-slate-400 px-1">
-          {bookings.length} {bookings.length === 1 ? "appointment" : "appointments"}
-          {hasFilters ? " matching filters" : ""}
+        <p className="text-xs text-slate-500 px-1">
+          {bookings.length} {period}{" "}
+          {bookings.length === 1 ? "appointment" : "appointments"}
+          {(status !== "ALL" || physicianId || search) ? " matching filters" : ""}
         </p>
       )}
 
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-[68px] w-full rounded-2xl" />
+            <Skeleton key={i} className="h-[72px] w-full rounded-xl" />
           ))}
         </div>
       ) : bookings.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-100 p-14 text-center">
           <ClipboardList className="w-8 h-8 text-slate-200 mx-auto mb-3" />
-          <p className="text-slate-400 text-sm font-medium">
+          <p className="text-slate-500 text-sm font-medium">
             {hasFilters ? "No bookings match your filters" : "No appointments booked yet"}
           </p>
           {hasFilters && (
@@ -186,52 +239,35 @@ function AllBookingsContent() {
       ) : (
         <div className="bg-white rounded-2xl border border-slate-100 divide-y divide-slate-50">
           {bookings.map((booking) => (
-            <Link
+            <AdminBookingRow
               key={booking.id}
-              href={`/admin/bookings/${booking.id}`}
-              className="flex items-center gap-5 px-5 py-4 hover:bg-slate-50/50 transition-colors group"
-            >
-              <div className="w-28 shrink-0">
-                <p className="text-xs text-slate-300">{formatShortDate(booking.slot.startsAt)}</p>
-                <p className="text-sm font-medium text-slate-800 mt-0.5">
-                  {formatSlotTime(booking.slot.startsAt)}
-                </p>
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 truncate">{booking.patientName}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span
-                    className={`px-2 py-0.5 rounded-md text-xs font-medium ${
-                      REASON_COLORS[booking.reasonChip] ?? "bg-slate-100 text-slate-500"
-                    }`}
-                  >
-                    {booking.reasonChip}
-                  </span>
-                  <span className="text-xs text-slate-300 truncate">
-                    {booking.slot.physician.name}
-                  </span>
-                </div>
-              </div>
-
-              <div className="shrink-0 text-slate-200 hidden sm:block">
-                {booking.slot.visitType === "IN_PERSON" ? (
-                  <Building2 className="w-4 h-4" />
-                ) : (
-                  <Video className="w-4 h-4" />
-                )}
-              </div>
-
-              <div className="shrink-0">
-                <StatusBadge status={booking.status} />
-              </div>
-
-              <ChevronRight className="w-4 h-4 text-slate-200 shrink-0 group-hover:text-slate-400 transition-colors" />
-            </Link>
+              booking={booking}
+              href={adminBookingDetailHref(booking.id, "bookings")}
+              layout="sheet"
+              showDate
+              showActions
+              showChevron={false}
+              actionLoadingId={actionLoadingId}
+              onConfirm={(bid) => updateStatus(bid, "CONFIRMED")}
+              onCancelClick={(bid) => setConfirmCancelId(bid)}
+            />
           ))}
         </div>
       )}
       </div>
+
+      <ConfirmDialog
+        open={confirmCancelId !== null}
+        title="Cancel this appointment?"
+        description="The patient's slot will be released and made available for rebooking."
+        confirmLabel="Yes, cancel"
+        cancelLabel="Keep appointment"
+        onConfirm={() => {
+          if (confirmCancelId) updateStatus(confirmCancelId, "CANCELLED");
+          setConfirmCancelId(null);
+        }}
+        onCancel={() => setConfirmCancelId(null)}
+      />
     </div>
   );
 }

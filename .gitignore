@@ -22,7 +22,14 @@
 
 # misc
 .DS_Store
+Thumbs.db
 *.pem
+
+# editor
+.vscode/
+.idea/
+*.swp
+*.swo
 
 # debug
 npm-debug.log*
@@ -48,4 +55,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# turbopack cache
+.turbo/
+
+# prisma generated client
 /src/generated/prisma

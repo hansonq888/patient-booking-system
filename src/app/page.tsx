@@ -17,7 +17,7 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 text-center pb-24">
+      <main className="flex-1 flex flex-col items-center justify-start px-6 text-center pt-12 sm:pt-16 pb-24">
         <div className="max-w-2xl space-y-6">
           <h1 className="text-5xl sm:text-6xl font-light text-slate-900 leading-[1.1] tracking-tight">
             The simplest way to book{" "}

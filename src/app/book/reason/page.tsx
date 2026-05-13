@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useBooking } from "@/context/BookingContext";
 
@@ -25,7 +25,8 @@ export default function ReasonPage() {
     }
   }, [form.slot, router]);
 
-  function handleContinue() {
+  function handleContinue(e?: FormEvent) {
+    e?.preventDefault();
     if (!selected) return;
     setReason(selected, notes);
     router.push("/book/details");
@@ -45,15 +46,18 @@ export default function ReasonPage() {
         </p>
       </div>
 
+      <form className="space-y-7" onSubmit={handleContinue}>
       <div>
-        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">
+        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">
           What brings you in?
         </p>
         <div className="flex flex-wrap gap-2">
           {REASON_CHIPS.map((chip) => (
             <button
+              type="button"
               key={chip}
               onClick={() => setSelected(chip)}
+              aria-pressed={selected === chip}
               className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all ${
                 selected === chip
                   ? "bg-slate-900 text-white border-slate-900"
@@ -69,10 +73,10 @@ export default function ReasonPage() {
       <div>
         <label
           htmlFor="notes"
-          className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2"
+          className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-2"
         >
           Additional notes{" "}
-          <span className="normal-case text-slate-300">(optional)</span>
+          <span className="normal-case text-slate-400">(optional)</span>
         </label>
         <textarea
           id="notes"
@@ -85,12 +89,13 @@ export default function ReasonPage() {
       </div>
 
       <button
-        onClick={handleContinue}
+        type="submit"
         disabled={!selected}
-        className="w-full bg-slate-900 hover:bg-slate-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-medium py-3 rounded-xl transition-colors"
+        className="w-full min-h-11 bg-slate-900 hover:bg-slate-700 disabled:bg-slate-200 disabled:text-slate-500 text-white font-medium py-3 rounded-xl transition-colors"
       >
         Continue
       </button>
+      </form>
     </div>
   );
 }

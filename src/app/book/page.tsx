@@ -27,11 +27,9 @@ export default function BookPage() {
 
   useEffect(() => {
     fetch("/api/physicians")
-      .then((r) => r.json())
-      .then((data) => {
-        setPhysicians(data);
-        setLoading(false);
-      });
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((data: Physician[]) => { setPhysicians(data); setLoading(false); })
+      .catch(() => setLoading(false));
   }, []);
 
   const filtered =
@@ -59,12 +57,13 @@ export default function BookPage() {
       </div>
 
       {/* Specialty filter */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap" role="group" aria-label="Filter physicians by specialty">
         {specialties.map((s) => (
           <button
             key={s}
             onClick={() => setFilter(s)}
-            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
+            aria-pressed={filter === s}
+            className={`min-h-11 px-4 py-2 rounded-full text-sm font-medium transition-all ${
               filter === s
                 ? "bg-slate-900 text-white"
                 : "bg-white text-slate-500 border border-slate-200 hover:border-slate-300 hover:text-slate-700"

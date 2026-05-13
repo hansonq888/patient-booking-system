@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
+// Singleton stored on `global` to survive Next.js HMR without leaking connections
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 const getPrismaClient = () => {

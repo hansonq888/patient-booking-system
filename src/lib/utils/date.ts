@@ -36,6 +36,23 @@ export function isPast(startsAt: string): boolean {
   return new Date(startsAt) < new Date();
 }
 
+// Uses local time fields instead of toISOString() to avoid UTC midnight shifting the date
+export function localDateKey(iso: string): string {
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// Same as localDateKey but accepts a Date directly
+export function localDateKeyFromDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function groupSlotsByDate(slots: { startsAt: string; id: string }[]) {
     const groups: Record<string, typeof slots> = {};
     for (const slot of slots) {

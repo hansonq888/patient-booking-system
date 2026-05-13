@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useBooking } from "@/context/BookingContext";
 
@@ -18,19 +18,16 @@ function Field({
   id: string;
   hint?: string;
   error?: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div className="space-y-1.5">
-      <label
-        htmlFor={id}
-        className="block text-xs font-medium text-slate-400 uppercase tracking-wide"
-      >
+      <label htmlFor={id} className="block text-xs font-medium text-slate-500 uppercase tracking-wide">
         {label}
       </label>
       {children}
-      {hint && !error && <p className="text-xs text-slate-300">{hint}</p>}
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {hint && !error && <p id={`${id}-hint`} className="text-xs text-slate-500">{hint}</p>}
+      {error && <p id={`${id}-error`} role="alert" className="text-xs text-red-500">{error}</p>}
     </div>
   );
 }
@@ -59,7 +56,8 @@ export default function DetailsPage() {
     return errs;
   }
 
-  function handleContinue() {
+  function handleContinue(e?: FormEvent) {
+    e?.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
@@ -83,7 +81,12 @@ export default function DetailsPage() {
         </p>
       </div>
 
-      <div className="space-y-5">
+      <form className="space-y-5" onSubmit={handleContinue} noValidate>
+        {Object.keys(errors).length > 0 && (
+          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            Please review the highlighted fields before continuing.
+          </div>
+        )}
         <Field label="Full name" id="name" error={errors.name}>
           <input
             id="name"
@@ -96,6 +99,8 @@ export default function DetailsPage() {
             placeholder="Jane Smith"
             className={inputClass}
             autoComplete="name"
+            aria-invalid={Boolean(errors.name)}
+            aria-describedby={errors.name ? "name-error" : undefined}
           />
         </Field>
 
@@ -115,10 +120,12 @@ export default function DetailsPage() {
             }}
             max={new Date().toISOString().split("T")[0]}
             className={inputClass}
+            aria-invalid={Boolean(errors.dob)}
+            aria-describedby={errors.dob ? "dob-error" : "dob-hint"}
           />
         </Field>
 
-        <Field label="Phone number" id="phone" error={errors.phone}>
+        <Field label="Phone number" id="phone" hint="Include area code for faster confirmation." error={errors.phone}>
           <input
             id="phone"
             type="tel"
@@ -130,16 +137,17 @@ export default function DetailsPage() {
             placeholder="+1 (555) 000-0000"
             className={inputClass}
             autoComplete="tel"
+            aria-invalid={Boolean(errors.phone)}
+            aria-describedby={errors.phone ? "phone-error" : "phone-hint"}
           />
         </Field>
-      </div>
-
-      <button
-        onClick={handleContinue}
-        className="w-full bg-slate-900 hover:bg-slate-700 text-white font-medium py-3 rounded-xl transition-colors"
-      >
-        Review booking
-      </button>
+        <button
+          type="submit"
+          className="w-full min-h-11 bg-slate-900 hover:bg-slate-700 text-white font-medium py-3 rounded-xl transition-colors"
+        >
+          Review booking
+        </button>
+      </form>
     </div>
   );
 }

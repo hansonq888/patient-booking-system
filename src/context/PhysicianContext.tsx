@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Physician } from "@/lib/types";
 
+// Persists selected physician across pages without requiring a server-side session
 const STORAGE_KEY = "vero_selected_physician";
 
 interface PhysicianContextType {

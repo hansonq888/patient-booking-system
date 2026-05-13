@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useBooking } from "@/context/BookingContext";
-import { formatSlotDate, formatSlotTime } from "@/lib/utils/date";
+import { formatSlotDate, formatSlotTime, formatDob } from "@/lib/utils/date";
 import { Building2, Video } from "lucide-react";
 import { PhysicianAvatar } from "@/components/PhysicianAvatar";
 
@@ -30,6 +30,7 @@ export default function ConfirmPage() {
   const { form, reset } = useBooking();
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
+  // Guards against redirect after a successful submission clears the form
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
@@ -145,24 +146,27 @@ export default function ConfirmPage() {
 
         <Section title="Patient">
           <Row label="Name" value={form.patientName} />
-          <Row label="Date of birth" value={form.patientDob} />
+          <Row label="Date of birth" value={formatDob(form.patientDob)} />
           <Row label="Phone" value={form.patientPhone} />
         </Section>
       </div>
 
       {apiError && (
-        <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+        <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
           {apiError}
         </p>
       )}
+      <p aria-live="polite" className="sr-only">
+        {loading ? "Submitting your booking request" : ""}
+      </p>
 
       <div className="space-y-2.5">
         <button
           onClick={handleConfirm}
           disabled={loading}
-          className="w-full bg-slate-900 hover:bg-slate-700 disabled:bg-slate-300 text-white font-medium py-3 rounded-xl transition-colors"
+          className="w-full min-h-11 bg-slate-900 hover:bg-slate-700 disabled:bg-slate-300 text-white font-medium py-3 rounded-xl transition-colors"
         >
-          {loading ? "Booking…" : "Confirm booking"}
+          {loading ? "Submitting request…" : "Submit booking request"}
         </button>
         <button
           onClick={() => router.back()}

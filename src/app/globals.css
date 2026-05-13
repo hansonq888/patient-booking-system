@@ -129,3 +129,23 @@
     @apply font-sans;
   }
 }
+
+/* Sonner: success toasts use a white card (richColors default is a green panel) */
+[data-sonner-toast][data-type="success"][data-rich-colors] {
+  background-color: #fff !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06) !important;
+}
+
+[data-sonner-toast][data-type="success"][data-rich-colors] [data-title] {
+  color: var(--foreground) !important;
+}
+
+[data-sonner-toast][data-type="success"][data-rich-colors] [data-description] {
+  color: var(--muted-foreground) !important;
+}
+
+[data-sonner-toast][data-type="success"][data-rich-colors] svg {
+  color: oklch(0.55 0.15 145) !important;
+}

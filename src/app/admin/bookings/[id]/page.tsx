@@ -2,16 +2,21 @@
 
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Building2, Video, Clock, CalendarDays, User, Phone, Check } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Booking } from "@/lib/types";
-import { formatSlotDate, formatSlotTime, isPast } from "@/lib/utils/date";
+import { formatSlotDate, formatSlotTime, formatDob, isPast } from "@/lib/utils/date";
 import { formatPhone } from "@/lib/utils/format";
 import { REASON_COLORS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  ADMIN_BOOKING_FROM_PARAM,
+  adminBookingListBack,
+} from "@/lib/admin-booking-nav";
 
 function LoadingSkeleton() {
   return (
@@ -71,13 +76,15 @@ export default function BookingDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-
+  const searchParams = useSearchParams();
+  const fromParam = searchParams.get(ADMIN_BOOKING_FROM_PARAM);
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [adminNotes, setAdminNotes] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
+  // Cleanup ref prevents calling setState after unmount if the success timer is still running
   const notesSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [actionLoading, setActionLoading] = useState<"CONFIRMED" | "CANCELLED" | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -99,6 +106,8 @@ export default function BookingDetailPage({
   useEffect(() => () => {
     if (notesSavedTimer.current) clearTimeout(notesSavedTimer.current);
   }, []);
+
+  const back = adminBookingListBack(fromParam);
 
   const notesIsDirty = adminNotes !== (booking?.adminNotes ?? "");
 
@@ -155,10 +164,12 @@ export default function BookingDetailPage({
       <div className="text-center py-24">
         <p className="text-slate-400 text-sm">Booking not found</p>
         <Link
-          href="/admin/bookings"
+          href={back.href}
+          scroll={back.href === "/admin"}
           className="mt-4 inline-flex items-center gap-2 text-slate-500 hover:text-slate-800 text-sm transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to bookings
+          <ArrowLeft className="w-4 h-4" /> Back
+          <span className="sr-only"> to {back.label}</span>
         </Link>
       </div>
     );
@@ -171,11 +182,13 @@ export default function BookingDetailPage({
   return (
     <div className="space-y-6">
       <Link
-        href="/admin/bookings"
+        href={back.href}
+        scroll={back.href === "/admin"}
         className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        All Bookings
+        Back
+        <span className="sr-only"> to {back.label}</span>
       </Link>
 
       <div>
@@ -190,7 +203,7 @@ export default function BookingDetailPage({
           <InfoCard title="Patient">
             <div className="space-y-3.5">
               <DetailRow icon={User} label="Full name" value={booking.patientName} />
-              <DetailRow icon={CalendarDays} label="Date of birth" value={booking.patientDob} />
+              <DetailRow icon={CalendarDays} label="Date of birth" value={formatDob(booking.patientDob)} />
               <DetailRow
                 icon={Phone}
                 label="Phone"

@@ -31,7 +31,7 @@ export default function SuccessPage({
       `Appointment with ${booking.slot.physician.name}`,
       booking.slot.startsAt,
       booking.slot.durationMins,
-      `${booking.reasonChip}${booking.reasonNotes ? ` — ${booking.reasonNotes}` : ""}`
+      `${booking.reasonChip}${booking.reasonNotes ? `: ${booking.reasonNotes}` : ""}`
     );
     const blob = new Blob([ics], { type: "text/calendar" });
     const url = URL.createObjectURL(blob);
@@ -86,9 +86,9 @@ export default function SuccessPage({
             )}
           </div>
 
-          <span className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-100 text-amber-700 text-xs font-medium px-3 py-1.5 rounded-full">
+          <span className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-100 text-amber-800 text-xs font-medium px-3 py-1.5 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            Awaiting confirmation
+            Request submitted - awaiting clinic confirmation
           </span>
         </div>
 
@@ -161,8 +161,8 @@ export default function SuccessPage({
           </p>
           <div className="space-y-2.5">
             {[
-              "Request received. Your booking is now in our system.",
-              "Clinic confirms. You’ll hear from them shortly.",
+              "Request submitted. Your booking is now in our system.",
+              "Clinic confirmation pending. You will hear from them shortly.",
               "Attend your visit. Add it to your calendar below.",
             ].map((text, i) => (
               <div key={i} className="flex items-start gap-2.5">

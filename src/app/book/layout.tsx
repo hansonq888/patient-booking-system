@@ -35,6 +35,12 @@ export default function BookLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="min-h-screen bg-[#F6F8FA]">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:bg-white focus:text-slate-900 focus:px-3 focus:py-2 focus:rounded-lg focus:border"
+      >
+        Skip to main content
+      </a>
       <header className="bg-white/80 backdrop-blur-sm border-b border-slate-100 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-6 py-4 grid grid-cols-3 items-center">
           {/* Back button */}
@@ -64,7 +70,7 @@ export default function BookLayout({ children }: { children: React.ReactNode }) 
 
           {/* Step counter */}
           <div className="flex justify-end">
-            <span className="text-xs text-slate-400 tracking-wide uppercase">
+            <span className="text-xs text-slate-500 tracking-wide uppercase">
               Step {currentStep + 1} of {steps.length}
             </span>
           </div>
@@ -83,10 +89,11 @@ export default function BookLayout({ children }: { children: React.ReactNode }) 
               </div>
             ))}
           </div>
-          <div className="flex mt-2">
+          <div className="hidden sm:flex mt-2">
             {steps.map((step, i) => (
               <div key={step.path} className="flex-1 flex justify-center">
                 <span
+                  aria-current={i === currentStep ? "step" : undefined}
                   className={`text-xs transition-colors ${
                     i === currentStep
                       ? "text-slate-800 font-medium"
@@ -103,7 +110,7 @@ export default function BookLayout({ children }: { children: React.ReactNode }) 
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-10">{children}</main>
+      <main id="main-content" className="max-w-2xl mx-auto px-6 py-8 sm:py-10">{children}</main>
     </div>
   );
 }

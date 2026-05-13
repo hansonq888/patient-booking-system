@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Building2, Video, AlertCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +11,11 @@ import { formatSlotDate, formatSlotTime, formatDob } from "@/lib/utils/date";
 import { formatPhone } from "@/lib/utils/format";
 import { REASON_COLORS } from "@/lib/constants";
 import { usePhysician } from "@/context/PhysicianContext";
+import {
+  PHYSICIAN_BOOKING_FROM_PARAM,
+  PHYSICIAN_CALENDAR_DAY_PARAM,
+  physicianBookingListBack,
+} from "@/lib/physician-booking-nav";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -21,6 +26,9 @@ export default function PhysicianBookingDetailPage({
 }) {
   const { physicianId, bookingId } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromParam = searchParams.get(PHYSICIAN_BOOKING_FROM_PARAM);
+  const calendarDayParam = searchParams.get(PHYSICIAN_CALENDAR_DAY_PARAM);
   const { selectedPhysician } = usePhysician();
 
   const [booking, setBooking] = useState<Booking | null>(null);
@@ -31,6 +39,10 @@ export default function PhysicianBookingDetailPage({
   const [savedNotes, setSavedNotes] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
+  const [actionMessage, setActionMessage] = useState("");
+
+  // router.replace() on the calendar page confuses Next.js scroll restoration
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   useEffect(() => {
     fetch(`/api/bookings/${bookingId}`)
@@ -53,6 +65,8 @@ export default function PhysicianBookingDetailPage({
       .catch(() => { setNotFound(true); setLoading(false); });
   }, [bookingId, physicianId, router]);
 
+  const back = physicianBookingListBack(physicianId, fromParam, calendarDayParam);
+
   async function updateStatus(newStatus: "CONFIRMED" | "CANCELLED") {
     if (!booking) return;
     setActionLoading(true);
@@ -71,8 +85,14 @@ export default function PhysicianBookingDetailPage({
           ? "Appointment confirmed"
           : "Appointment cancelled — slot is now available"
       );
+      setActionMessage(
+        newStatus === "CONFIRMED"
+          ? "Appointment confirmed successfully."
+          : "Appointment cancelled and slot reopened."
+      );
     } catch {
       toast.error("Action failed. Please try again.");
+      setActionMessage("Action failed. Please try again.");
     } finally {
       setActionLoading(false);
     }
@@ -90,9 +110,11 @@ export default function PhysicianBookingDetailPage({
       if (!res.ok) throw new Error();
       setSavedNotes(notes);
       setNotesSaved(true);
+      setActionMessage("Notes saved.");
       setTimeout(() => setNotesSaved(false), 2500);
     } catch {
       toast.error("Failed to save notes. Please try again.");
+      setActionMessage("Failed to save notes.");
     } finally {
       setNotesSaving(false);
     }
@@ -122,10 +144,12 @@ export default function PhysicianBookingDetailPage({
         <AlertCircle className="w-6 h-6 text-red-400 mx-auto mb-2" />
         <p className="text-slate-500 text-sm mb-4">Booking not found</p>
         <Link
-          href={`/physician/${physicianId}/bookings`}
+          href={back.href}
+          scroll={!back.href.includes("/calendar")}
           className="text-teal-600 text-sm hover:underline"
         >
-          ← Back to all patients
+          ← Back
+          <span className="sr-only"> to {back.label}</span>
         </Link>
       </div>
     );
@@ -140,10 +164,13 @@ export default function PhysicianBookingDetailPage({
       {/* Back + heading */}
       <div>
         <Link
-          href={`/physician/${physicianId}/bookings`}
-          className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600 transition-colors mb-4"
+          href={back.href}
+          scroll={!back.href.includes("/calendar")}
+          className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 transition-colors mb-4"
         >
-          <ChevronLeft className="w-4 h-4" /> All Patients
+          <ChevronLeft className="w-4 h-4" />
+          Back
+          <span className="sr-only"> to {back.label}</span>
         </Link>
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-2xl font-light text-slate-900">Patient Visit</h1>
@@ -156,15 +183,15 @@ export default function PhysicianBookingDetailPage({
         <div className="sm:col-span-2 space-y-4">
           {/* Patient */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Patient</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Patient</p>
             <p className="text-lg font-medium text-slate-900">{booking.patientName}</p>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <p className="text-xs text-slate-400 mb-0.5">Date of birth</p>
+                <p className="text-xs text-slate-500 mb-0.5">Date of birth</p>
                 <p className="text-slate-700">{formatDob(booking.patientDob)}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-400 mb-0.5">Phone</p>
+                <p className="text-xs text-slate-500 mb-0.5">Phone</p>
                 <a href={`tel:${booking.patientPhone}`} className="text-slate-700 hover:text-teal-600 transition-colors">
                   {formatPhone(booking.patientPhone)}
                 </a>
@@ -174,7 +201,7 @@ export default function PhysicianBookingDetailPage({
 
           {/* Reason */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Reason for visit</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Reason for visit</p>
             <span className={`inline-block px-2.5 py-1 rounded-md text-sm font-medium ${REASON_COLORS[booking.reasonChip] ?? "bg-slate-100 text-slate-500"}`}>
               {booking.reasonChip}
             </span>
@@ -187,22 +214,22 @@ export default function PhysicianBookingDetailPage({
 
           {/* Appointment */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Appointment</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Appointment</p>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <p className="text-xs text-slate-400 mb-0.5">Date</p>
+                <p className="text-xs text-slate-500 mb-0.5">Date</p>
                 <p className="text-slate-700">{formatSlotDate(booking.slot.startsAt)}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-400 mb-0.5">Time</p>
+                <p className="text-xs text-slate-500 mb-0.5">Time</p>
                 <p className="text-slate-700">{formatSlotTime(booking.slot.startsAt)}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-400 mb-0.5">Duration</p>
+                <p className="text-xs text-slate-500 mb-0.5">Duration</p>
                 <p className="text-slate-700">{booking.slot.durationMins} minutes</p>
               </div>
               <div>
-                <p className="text-xs text-slate-400 mb-0.5">Visit type</p>
+                <p className="text-xs text-slate-500 mb-0.5">Visit type</p>
                 <span className="flex items-center gap-1.5 text-slate-700">
                   {booking.slot.visitType === "IN_PERSON"
                     ? <Building2 className="w-3.5 h-3.5" />
@@ -215,7 +242,7 @@ export default function PhysicianBookingDetailPage({
 
           {/* Clinical notes */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Clinical notes</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Clinical notes</p>
             <textarea
               value={notes}
               onChange={(e) => { setNotes(e.target.value); setNotesSaved(false); }}
@@ -234,7 +261,7 @@ export default function PhysicianBookingDetailPage({
                 onClick={saveNotes}
                 disabled={!notesChanged || notesSaving}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed",
+                  "min-h-11 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed",
                   notesChanged
                     ? "bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
                     : "bg-slate-100 text-slate-400"
@@ -249,7 +276,7 @@ export default function PhysicianBookingDetailPage({
         {/* Right — actions */}
         <div>
           <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4 sticky top-24">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Actions</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</p>
             <div className="flex items-center gap-2">
               <span className="text-sm text-slate-500">Status</span>
               <StatusBadge status={booking.status} />
@@ -260,14 +287,14 @@ export default function PhysicianBookingDetailPage({
                 <button
                   onClick={() => updateStatus("CONFIRMED")}
                   disabled={actionLoading}
-                  className="w-full px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full min-h-11 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {actionLoading ? "Confirming…" : "Confirm appointment"}
                 </button>
                 <button
                   onClick={() => updateStatus("CANCELLED")}
                   disabled={actionLoading}
-                  className="w-full px-4 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full min-h-11 px-4 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {actionLoading ? "Cancelling…" : "Cancel appointment"}
                 </button>
@@ -279,7 +306,7 @@ export default function PhysicianBookingDetailPage({
                 <button
                   onClick={() => updateStatus("CANCELLED")}
                   disabled={actionLoading}
-                  className="w-full px-4 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full min-h-11 px-4 py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {actionLoading ? "Cancelling…" : "Cancel appointment"}
                 </button>
@@ -295,6 +322,9 @@ export default function PhysicianBookingDetailPage({
           </div>
         </div>
       </div>
+      <p aria-live="polite" className="sr-only">
+        {actionMessage}
+      </p>
     </div>
   );
 }

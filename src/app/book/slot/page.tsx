@@ -92,13 +92,13 @@ export default function SlotPage() {
                 <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">
                   {formatSlotDate(daySlots[0].startsAt)}
                 </p>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {daySlots.map((slot) => (
                     <button
                       key={slot.id}
                       onClick={() => handleSelect(slot)}
                       className={cn(
-                        "flex flex-col items-center justify-center gap-1.5 bg-white rounded-xl border py-3 px-2 transition-all hover:shadow-sm",
+                        "min-h-16 flex flex-col items-center justify-center gap-1.5 bg-white rounded-xl border py-3 px-2 transition-all hover:shadow-sm",
                         slot.visitType === "IN_PERSON"
                           ? "border-teal-100 hover:border-teal-300"
                           : "border-blue-100 hover:border-blue-300"

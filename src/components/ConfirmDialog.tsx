@@ -21,14 +21,42 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: Props) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  // Returns focus to the button that opened the dialog when it closes
+  const triggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     cancelRef.current?.focus();
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
+    // Manual focus trap: keeps Tab navigation inside the dialog while it is open
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onCancel();
+        return;
+      }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+      const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+    return () => {
+      document.removeEventListener("keydown", handler);
+      triggerRef.current?.focus();
+    };
   }, [open, onCancel]);
 
   if (!open) return null;
@@ -41,15 +69,19 @@ export function ConfirmDialog({
         aria-hidden="true"
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-description"
         className="relative bg-white rounded-2xl shadow-xl border border-slate-100 p-6 w-full max-w-sm animate-in fade-in-0 zoom-in-95 duration-150"
       >
         <h3 id="confirm-dialog-title" className="text-base font-medium text-slate-900">
           {title}
         </h3>
-        <p className="text-sm text-slate-400 mt-1.5 leading-relaxed">{description}</p>
+        <p id="confirm-dialog-description" className="text-sm text-slate-500 mt-1.5 leading-relaxed">
+          {description}
+        </p>
         <div className="flex gap-2.5 mt-5">
           <button
             ref={cancelRef}

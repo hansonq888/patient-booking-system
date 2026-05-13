@@ -20,6 +20,9 @@ export async function GET(request: Request) {
     const physicianId = searchParams.get("physicianId");
     const search = searchParams.get("search");
     const date = searchParams.get("date");
+    const period = searchParams.get("period");
+    const rangeFromParam = searchParams.get("rangeFrom");
+    const rangeToParam = searchParams.get("rangeTo");
 
     const where: Record<string, unknown> = {};
 
@@ -34,20 +37,44 @@ export async function GET(request: Request) {
       };
     }
 
+    const slotWhere: Record<string, unknown> = {};
     if (physicianId) {
-      where.slot = { physicianId };
+      slotWhere.physicianId = physicianId;
     }
 
-    if (date === "today") {
+    // Calendar queries pass an explicit date range; skip period/today filters to avoid conflict
+    let useRange = false;
+    if (rangeFromParam && rangeToParam) {
+      const from = new Date(rangeFromParam);
+      const to = new Date(rangeToParam);
+      if (!Number.isNaN(from.getTime()) && !Number.isNaN(to.getTime())) {
+        slotWhere.startsAt = { gte: from, lte: to };
+        useRange = true;
+      }
+    }
+
+    if (!useRange && date === "today") {
       const start = new Date();
       start.setHours(0, 0, 0, 0);
       const end = new Date();
       end.setHours(23, 59, 59, 999);
-      where.slot = {
-        ...(where.slot as object),
-        startsAt: { gte: start, lte: end },
-      };
+      slotWhere.startsAt = { gte: start, lte: end };
     }
+
+    if (!useRange && date !== "today") {
+      if (period === "upcoming") {
+        slotWhere.startsAt = { gt: new Date() };
+      } else if (period === "past") {
+        slotWhere.startsAt = { lt: new Date() };
+      }
+    }
+
+    if (Object.keys(slotWhere).length > 0) {
+      where.slot = slotWhere;
+    }
+
+    // Past bookings show newest first; all other queries show soonest first
+    const orderDir = !useRange && period === "past" ? "desc" : "asc";
 
     const bookings = await prisma.booking.findMany({
       where,
@@ -58,7 +85,7 @@ export async function GET(request: Request) {
           },
         },
       },
-      orderBy: { slot: { startsAt: "asc" } },
+      orderBy: { slot: { startsAt: orderDir } },
     });
 
     return NextResponse.json(bookings);
@@ -86,6 +113,7 @@ export async function POST(request: Request) {
     const { slotId, patientName, patientDob, patientPhone, reasonChip, reasonNotes } =
       parsed.data;
 
+    // Transaction prevents double-booking if two requests check the slot simultaneously
     const booking = await prisma.$transaction(async (tx) => {
       const slot = await tx.appointmentSlot.findUnique({
         where: { id: slotId },
@@ -148,6 +176,7 @@ export async function POST(request: Request) {
         );
       }
     }
+    // Unique constraint fallback in case the transaction race check was bypassed at the DB level
     if (
       typeof error === "object" &&
       error !== null &&

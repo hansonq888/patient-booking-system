@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { BookingFormState, Physician, Slot } from "@/lib/types";
 
 const defaultState: BookingFormState = {
@@ -12,6 +12,8 @@ const defaultState: BookingFormState = {
   patientDob: "",
   patientPhone: "",
 };
+// Versioned key so stale form data from old schemas doesn't break the flow
+const BOOKING_STORAGE_KEY = "vero-booking-form-v1";
 
 interface BookingContextType {
   form: BookingFormState;
@@ -26,6 +28,26 @@ const BookingContext = createContext<BookingContextType | null>(null);
 
 export function BookingProvider({ children }: { children: ReactNode }) {
   const [form, setForm] = useState<BookingFormState>(defaultState);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(BOOKING_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as BookingFormState;
+      setForm({ ...defaultState, ...parsed });
+    } catch {
+      // Ignore stale/invalid local storage payloads.
+    } finally {
+      setHydrated(true);
+    }
+  }, []);
+
+  // Hydration guard: skip writing until localStorage has been read to avoid overwriting with defaults
+  useEffect(() => {
+    if (!hydrated) return;
+    localStorage.setItem(BOOKING_STORAGE_KEY, JSON.stringify(form));
+  }, [form, hydrated]);
 
   const setPhysician = (physician: Physician) =>
     setForm((prev) => ({ ...prev, physician, slot: null }));
@@ -42,7 +64,10 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     patientPhone: string
   ) => setForm((prev) => ({ ...prev, patientName, patientDob, patientPhone }));
 
-  const reset = () => setForm(defaultState);
+  const reset = () => {
+    setForm(defaultState);
+    localStorage.removeItem(BOOKING_STORAGE_KEY);
+  };
 
   return (
     <BookingContext.Provider

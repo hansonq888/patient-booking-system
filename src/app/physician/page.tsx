@@ -9,7 +9,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Physician } from "@/lib/types";
 import { usePhysician } from "@/context/PhysicianContext";
 import { AVATAR_COLOR_CLASSES } from "@/lib/constants";
-import { formatShortDate, formatSlotTime } from "@/lib/utils/date";
 
 export default function PhysicianPickerPage() {
   const router = useRouter();
@@ -86,11 +85,6 @@ export default function PhysicianPickerPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-900">{physician.name}</p>
                   <p className="text-xs text-slate-400 mt-0.5">{physician.specialty}</p>
-                  {physician.nextAvailable && (
-                    <p className="text-xs text-teal-600 mt-0.5">
-                      Next: {formatShortDate(physician.nextAvailable)} at {formatSlotTime(physician.nextAvailable)}
-                    </p>
-                  )}
                 </div>
 
                 {!physician.acceptingNew && (

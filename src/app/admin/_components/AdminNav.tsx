@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { LayoutDashboard, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Booking } from "@/lib/types";
+import { ADMIN_BOOKING_FROM_PARAM } from "@/lib/admin-booking-nav";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -39,10 +40,10 @@ function NavItem({ href, label, icon: Icon, active, pendingCount, mobile }: NavI
       href={href}
       className={cn(
         "flex items-center gap-2.5 rounded-lg text-sm transition-colors relative",
-        mobile ? "px-3 py-2" : "px-3 py-2.5",
+        "px-3 py-2.5 min-h-11",
         active
           ? "text-slate-900 font-medium bg-slate-100"
-          : "text-slate-400 hover:text-slate-700 hover:bg-slate-50 font-normal"
+          : "text-slate-500 hover:text-slate-700 hover:bg-slate-50 font-normal"
       )}
     >
       {!mobile && active && (
@@ -61,8 +62,30 @@ function NavItem({ href, label, icon: Icon, active, pendingCount, mobile }: NavI
 
 export function AdminNav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [pendingCount, setPendingCount] = useState<number | null>(null);
+  // Tracks the previous pathname to detect navigation and refresh the pending count
   const prevPathname = useRef(pathname);
+
+  const dashboardHref = "/admin";
+  const bookingsHref = "/admin/bookings";
+  const fromTab = searchParams.get(ADMIN_BOOKING_FROM_PARAM);
+  const afterBookings =
+    pathname.startsWith(`${bookingsHref}/`) ? pathname.slice(bookingsHref.length + 1) : "";
+  const onBookingDetail = afterBookings.length > 0 && !afterBookings.includes("/");
+
+  function navItemIsActive(href: string, exact: boolean) {
+    if (href === dashboardHref) {
+      if (pathname === dashboardHref) return true;
+      return onBookingDetail && fromTab === "dashboard";
+    }
+    if (href === bookingsHref) {
+      if (pathname === bookingsHref) return true;
+      if (onBookingDetail && fromTab !== "dashboard") return true;
+      return false;
+    }
+    return exact ? pathname === href : pathname.startsWith(href);
+  }
 
   function fetchPendingCount() {
     fetch("/api/bookings?status=PENDING")
@@ -86,10 +109,6 @@ export function AdminNav() {
     return () => window.removeEventListener("pendingCountChanged", handler);
   }, []);
 
-  function isActive(href: string, exact: boolean) {
-    return exact ? pathname === href : pathname.startsWith(href);
-  }
-
   return (
     <>
       {/* Mobile top nav */}
@@ -102,7 +121,7 @@ export function AdminNav() {
               href={item.href}
               label={item.label}
               icon={item.icon}
-              active={isActive(item.href, item.exact)}
+              active={navItemIsActive(item.href, item.exact)}
               pendingCount={pendingCount}
               mobile
             />
@@ -122,7 +141,7 @@ export function AdminNav() {
               href={item.href}
               label={item.label}
               icon={item.icon}
-              active={isActive(item.href, item.exact)}
+              active={navItemIsActive(item.href, item.exact)}
               pendingCount={pendingCount}
             />
           ))}
