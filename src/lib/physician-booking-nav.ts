@@ -1,5 +1,5 @@
 /** Which physician tab the user came from — keeps tab highlight correct on booking detail URLs. */
-export type PhysicianBookingFromTab = "schedule" | "calendar" | "patients";
+export type PhysicianBookingFromTab = "schedule" | "calendar" | "patients" | "inbox";
 
 export const PHYSICIAN_BOOKING_FROM_PARAM = "from" as const;
 
@@ -45,6 +45,9 @@ export function physicianBookingListBack(
 ): { href: string; label: string } {
   if (from === "schedule") {
     return { href: `/physician/${physicianId}`, label: "My Schedule" };
+  }
+  if (from === "inbox") {
+    return { href: `/physician/${physicianId}/inbox`, label: "Inbox" };
   }
   if (from === "calendar") {
     const base = `/physician/${physicianId}/calendar`;

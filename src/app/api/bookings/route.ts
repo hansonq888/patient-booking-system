@@ -21,6 +21,7 @@ export async function GET(request: Request) {
     const search = searchParams.get("search");
     const date = searchParams.get("date");
     const period = searchParams.get("period");
+    const sort = searchParams.get("sort");
     const rangeFromParam = searchParams.get("rangeFrom");
     const rangeToParam = searchParams.get("rangeTo");
 
@@ -40,6 +41,17 @@ export async function GET(request: Request) {
     const slotWhere: Record<string, unknown> = {};
     if (physicianId) {
       slotWhere.physicianId = physicianId;
+    }
+
+    // Inbox queries sort by creation date and skip all slot-date filters
+    if (sort === "created") {
+      if (Object.keys(slotWhere).length > 0) where.slot = slotWhere;
+      const bookings = await prisma.booking.findMany({
+        where,
+        include: { slot: { include: { physician: true } } },
+        orderBy: { createdAt: "desc" },
+      });
+      return NextResponse.json(bookings);
     }
 
     // Calendar queries pass an explicit date range; skip period/today filters to avoid conflict

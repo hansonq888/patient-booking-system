@@ -58,11 +58,13 @@ export default function PhysicianLayout({
   const avatarClass = AVATAR_COLOR_CLASSES[selectedPhysician.color] ?? "bg-slate-100 text-slate-600";
   const scheduleHref = `/physician/${physicianId}`;
   const calendarHref = `/physician/${physicianId}/calendar`;
+  const inboxHref = `/physician/${physicianId}/inbox`;
   const patientsHref = `/physician/${physicianId}/bookings`;
 
   const tabs = [
     { label: "My Schedule", href: scheduleHref },
     { label: "Calendar", href: calendarHref },
+    { label: "Inbox", href: inboxHref },
     { label: "All Patients", href: patientsHref },
   ];
 
@@ -79,9 +81,13 @@ export default function PhysicianLayout({
       if (pathname === calendarHref) return true;
       return onBookingDetail && fromTab === "calendar";
     }
+    if (href === inboxHref) {
+      if (pathname === inboxHref) return true;
+      return onBookingDetail && fromTab === "inbox";
+    }
     if (href === patientsHref) {
       if (pathname === patientsHref) return true;
-      if (onBookingDetail && fromTab !== "schedule" && fromTab !== "calendar") return true;
+      if (onBookingDetail && fromTab !== "schedule" && fromTab !== "calendar" && fromTab !== "inbox") return true;
       return false;
     }
     return false;
@@ -141,7 +147,7 @@ export default function PhysicianLayout({
                 )}
               >
                 {tab.label}
-                {tab.label === "All Patients" && pendingCount !== null && pendingCount > 0 && (
+                {tab.label === "Inbox" && pendingCount !== null && pendingCount > 0 && (
                   <span className="bg-amber-100 text-amber-600 text-xs font-semibold px-1.5 py-0.5 rounded-full leading-none">
                     {pendingCount}
                   </span>
