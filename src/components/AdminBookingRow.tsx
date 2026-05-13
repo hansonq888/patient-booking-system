@@ -106,7 +106,7 @@ export function AdminBookingRow({
       </div>
 
       {showActions && canAct && onConfirm && onCancelClick && (
-        <div className="relative z-10 flex shrink-0 items-center gap-1.5 pr-4">
+        <div className={cn("relative z-10 flex shrink-0 items-center gap-1.5 pr-4", layout === "card" && "hidden sm:flex")}>
           {booking.status === "PENDING" && (
             <button
               type="button"

@@ -50,7 +50,7 @@ function NavItem({ href, label, icon: Icon, active, pendingCount, mobile }: NavI
         <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-slate-900 rounded-full" />
       )}
       <Icon className="w-4 h-4 shrink-0" />
-      <span className={cn(mobile && "hidden sm:inline")}>{label}</span>
+      <span>{label}</span>
       {label === "All Bookings" && pendingCount !== null && pendingCount > 0 && (
         <span className="ml-auto bg-amber-100 text-amber-600 text-xs font-semibold px-1.5 py-0.5 rounded-full">
           {pendingCount}
