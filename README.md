@@ -2,7 +2,7 @@
 
 A patient appointment booking app built as part of the Vero Summer 2026 co-op application.
 
-**Live demo:** https://patient-booking-system-a51g42rr7-hansons-projects-ae068754.vercel.app
+**Live demo:** https://patient-booking-system-tau.vercel.app
 
 No setup needed. Feel free to click around and try the full booking flow, admin view, and physician workspace.
 
